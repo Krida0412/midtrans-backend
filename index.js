@@ -5,10 +5,10 @@ const cors           = require("cors");
 const midtransClient = require("midtrans-client");
 const reverseRoute   = require("./reverse");
 
-const app = express();
+const app  = express();
 const PORT = process.env.PORT;
 if (!PORT) {
-  console.error("❌ Environment variable PORT tidak tersedia!");
+  console.error("❌ PORT env tidak tersedia!");  // Railway pasti menyediakannya
   process.exit(1);
 }
 
@@ -22,29 +22,26 @@ const corsOptions = {
   optionsSuccessStatus: 204,
 };
 
-app.use(cors(corsOptions));
+app.use(cors(corsOptions));   // sudah cukup untuk pre-flight
 app.use(express.json());
-app.options("*", cors(corsOptions));
 
 /* ---------- Midtrans Snap client ---------- */
 const snap = new midtransClient.Snap({
   isProduction: false,
-  serverKey: process.env.MIDTRANS_SERVER_KEY,
+  serverKey   : process.env.MIDTRANS_SERVER_KEY,
 });
 
-/* ---------------- ROUTES ---------------- */
+/* ------------ ROUTES ------------ */
 
 app.post("/api/transaction", async (req, res) => {
   const { orderId, grossAmount, customerName } = req.body;
   if (!orderId || !grossAmount)
-    return res
-      .status(400)
-      .json({ message: "orderId & grossAmount wajib diisi" });
+    return res.status(400).json({ message: "orderId & grossAmount wajib diisi" });
 
   try {
     const parameter = {
       transaction_details: { order_id: orderId, gross_amount: grossAmount },
-      customer_details: { first_name: customerName || "Pelanggan" },
+      customer_details   : { first_name: customerName || "Pelanggan" },
     };
 
     const { token, redirect_url } = await snap.createTransaction(parameter);
