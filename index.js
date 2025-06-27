@@ -3,51 +3,47 @@ require("dotenv").config();
 const express        = require("express");
 const cors           = require("cors");
 const midtransClient = require("midtrans-client");
-
 const reverseRoute   = require("./reverse");
 
 const app  = express();
 const PORT = process.env.PORT || 4000;
 
-/* ---------- Middleware global ---------- */
-// Izinkan semua origin (ganti 'origin' jika ingin spesifik Vercel saja)
-app.use(cors());
-app.use(express.json());          // parse JSON body
+/* ---------- Konfigurasi CORS ---------- */
+const ALLOWED_ORIGIN = "https://food-delivery-gray-theta.vercel.app"; // ganti/add origin lain bila perlu
+
+const corsOptions = {
+  origin            : ALLOWED_ORIGIN,   // atau (origin, cb) => cb(null, true) untuk semua
+  methods           : ["GET", "POST", "OPTIONS"],
+  allowedHeaders    : ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 204            // status utk legacy browser
+};
+
+app.use(cors(corsOptions));
+app.use(express.json());
+
+// 🔓 Pastikan SEMUA pre-flight dijawab
+app.options("*", cors(corsOptions));
 
 /* ---------- Midtrans Snap client ---------- */
 const snap = new midtransClient.Snap({
-  isProduction: false,                     // ← ganti true di production
+  isProduction: false,                       // ← true di production
   serverKey   : process.env.MIDTRANS_SERVER_KEY,
 });
 
 /* ===================================================== */
-/* ================     ROUTES SECTION     ============== */
+/* =====================  ROUTES  ====================== */
 /* ===================================================== */
 
-/* -- PRE-FLIGHT handler untuk /api/transaction --------- */
-// Browser akan kirim OPTIONS terlebih dulu sebelum POST.
-// Baris ini menjawab OPTIONS → 204 No Content
-app.options("/api/transaction", cors());
-
 /* -- POST /api/transaction  ->  Buat Snap token -------- */
-app.post("/api/transaction", cors(), async (req, res) => {
+app.post("/api/transaction", async (req, res) => {
   const { orderId, grossAmount, customerName } = req.body;
-
-  if (!orderId || !grossAmount) {
-    return res.status(400).json({
-      message: "orderId & grossAmount wajib diisi",
-    });
-  }
+  if (!orderId || !grossAmount)
+    return res.status(400).json({ message: "orderId & grossAmount wajib diisi" });
 
   try {
     const parameter = {
-      transaction_details: {
-        order_id   : orderId,
-        gross_amount: grossAmount,
-      },
-      customer_details: {
-        first_name: customerName || "Pelanggan",
-      },
+      transaction_details: { order_id: orderId, gross_amount: grossAmount },
+      customer_details   : { first_name: customerName || "Pelanggan" },
     };
 
     const { token, redirect_url } = await snap.createTransaction(parameter);
